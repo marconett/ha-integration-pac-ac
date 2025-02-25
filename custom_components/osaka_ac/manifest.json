@@ -1,0 +1,14 @@
+{
+  "domain": "n81_ac",
+  "name": "N81 AC",
+  "codeowners": [
+    "@marconett"
+  ],
+  "config_flow": false,
+  "iot_class": "assumed_state",
+  "dependencies": [
+    "mqtt"
+  ],
+  "version": "v1.0.0",
+  "integration_type": "hub"
+}
