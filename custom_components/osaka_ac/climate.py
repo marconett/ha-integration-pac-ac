@@ -41,7 +41,6 @@ from homeassistant.components.climate.const import (
     HVACAction,
 )
 from homeassistant.components.template.const import CONF_AVAILABILITY_TEMPLATE
-from homeassistant.components.template.template_entity import TemplateEntity
 from homeassistant.const import (
     STATE_ON,
     PRECISION_HALVES,
@@ -178,7 +177,7 @@ async def async_setup_platform(
     return True
 
 
-class N81ACEntity(TemplateEntity, ClimateEntity, RestoreEntity):
+class N81ACEntity(ClimateEntity, RestoreEntity):
     """N81 AC unit entity"""
 
     _attr_should_poll = False
@@ -186,17 +185,13 @@ class N81ACEntity(TemplateEntity, ClimateEntity, RestoreEntity):
 
     def __init__(self, hass: HomeAssistant, config: ConfigType):
         """Initialize the climate device."""
-        super().__init__(
-            hass,
-            availability_template=config.get(CONF_AVAILABILITY_TEMPLATE),
-            icon_template=config.get(CONF_ICON_TEMPLATE),
-            entity_picture_template=config.get(CONF_ENTITY_PICTURE_TEMPLATE),
-            unique_id=config.get(CONF_UNIQUE_ID, None),
-        )
+        super().__init__()
         self.hass = hass
+        self._attr_unique_id = config.get(CONF_UNIQUE_ID)
         self.entity_id = async_generate_entity_id(
             ENTITY_ID_FORMAT, config[CONF_NAME], hass=hass
         )
+        self._attr_name = config[CONF_NAME]
 
         self._attr_supported_features: ClimateEntityFeature = ClimateEntityFeature(0)
         self._attr_supported_features |= ClimateEntityFeature.TURN_ON
@@ -206,7 +201,6 @@ class N81ACEntity(TemplateEntity, ClimateEntity, RestoreEntity):
 
         self._attr_temperature_unit = hass.config.units.temperature_unit
 
-        self._name = CONF_NAME
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_target_temperature = 16
         self._attr_fan_mode = "low"
