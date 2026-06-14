@@ -4,8 +4,6 @@ import logging
 
 from . import ir
 
-from typing import Any, cast
-
 import homeassistant.helpers.config_validation as cv
 import voluptuous as vol
 from homeassistant.components.climate import (
@@ -14,158 +12,34 @@ from homeassistant.components.climate import (
     ENTITY_ID_FORMAT,
 )
 from homeassistant.components.climate.const import (
-    DEFAULT_MAX_TEMP,
-    DEFAULT_MIN_TEMP,
-    ATTR_MIN_TEMP,
-    ATTR_MAX_TEMP,
     ATTR_HVAC_MODE,
     ATTR_FAN_MODE,
-    ATTR_PRESET_MODE,
-    ATTR_SWING_MODE,
-    ATTR_CURRENT_TEMPERATURE,
-    ATTR_CURRENT_HUMIDITY,
-    ATTR_MIN_HUMIDITY,
-    ATTR_MAX_HUMIDITY,
-    ATTR_HUMIDITY,
-    FAN_AUTO,
     FAN_LOW,
-    FAN_MEDIUM,
-    FAN_HIGH,
-    PRESET_ACTIVITY,
-    PRESET_BOOST,
-    PRESET_SLEEP,
-    PRESET_NONE,
-    ATTR_TARGET_TEMP_HIGH,
-    ATTR_TARGET_TEMP_LOW,
     HVACMode,
-    HVACAction,
 )
-from homeassistant.components.template.const import CONF_AVAILABILITY_TEMPLATE
 from homeassistant.const import (
-    STATE_ON,
-    PRECISION_HALVES,
-    PRECISION_TENTHS,
-    PRECISION_WHOLE,
     ATTR_TEMPERATURE,
     CONF_NAME,
-    STATE_UNKNOWN,
-    STATE_UNAVAILABLE,
-    CONF_ICON_TEMPLATE,
-    CONF_ENTITY_PICTURE_TEMPLATE,
     CONF_UNIQUE_ID,
-    ATTR_SUPPORTED_FEATURES,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.script import Script
 from homeassistant.helpers.typing import ConfigType
 
-from .const import DOMAIN, PLATFORMS
+from .const import DEFAULT_MQTT_TOPIC, DEFAULT_NAME
 
 _LOGGER = logging.getLogger(__name__)
 
-CONF_FAN_MODE_LIST = "fan_modes"
-CONF_PRESET_MODE_LIST = "preset_modes"
-CONF_MODE_LIST = "modes"
-CONF_SWING_MODE_LIST = "swing_modes"
-CONF_TEMP_MIN_TEMPLATE = "min_temp_template"
-CONF_TEMP_MIN = "min_temp"
-CONF_TEMP_MAX_TEMPLATE = "max_temp_template"
-CONF_TEMP_MAX = "max_temp"
-CONF_PRECISION = "precision"
-CONF_CURRENT_TEMP_TEMPLATE = "current_temperature_template"
-CONF_TEMP_STEP = "temp_step"
-
-CONF_CURRENT_HUMIDITY_TEMPLATE = "current_humidity_template"
-CONF_MIN_HUMIDITY_TEMPLATE = "min_humidity_template"
-CONF_MAX_HUMIDITY_TEMPLATE = "max_humidity_template"
-CONF_TARGET_HUMIDITY_TEMPLATE = "target_humidity_template"
-CONF_TARGET_TEMPERATURE_TEMPLATE = "target_temperature_template"
-CONF_TARGET_TEMPERATURE_HIGH_TEMPLATE = "target_temperature_high_template"
-CONF_TARGET_TEMPERATURE_LOW_TEMPLATE = "target_temperature_low_template"
-CONF_HVAC_MODE_TEMPLATE = "hvac_mode_template"
-CONF_FAN_MODE_TEMPLATE = "fan_mode_template"
-CONF_PRESET_MODE_TEMPLATE = "preset_mode_template"
-CONF_SWING_MODE_TEMPLATE = "swing_mode_template"
-CONF_HVAC_ACTION_TEMPLATE = "hvac_action_template"
-
-CONF_SET_HUMIDITY_ACTION = "set_humidity"
-CONF_SET_TEMPERATURE_ACTION = "set_temperature"
-CONF_SET_HVAC_MODE_ACTION = "set_hvac_mode"
-CONF_SET_FAN_MODE_ACTION = "set_fan_mode"
-CONF_SET_PRESET_MODE_ACTION = "set_preset_mode"
-CONF_SET_SWING_MODE_ACTION = "set_swing_mode"
-
-CONF_CLIMATES = "climates"
-
 CONF_MQTT_TOPIC_NAME = "mqtt_topic_name"
 
-DEFAULT_NAME = "N81 AC"
 DEFAULT_TEMP = 25
-DEFAULT_PRECISION = 1.0
 
 PLATFORM_SCHEMA = cv.PLATFORM_SCHEMA.extend(
     {
         vol.Optional(CONF_NAME, default=DEFAULT_NAME): cv.string,
-        vol.Optional(CONF_AVAILABILITY_TEMPLATE): cv.template,
-        vol.Optional(CONF_ICON_TEMPLATE): cv.template,
-        vol.Optional(CONF_ENTITY_PICTURE_TEMPLATE): cv.template,
-        vol.Optional(CONF_CURRENT_TEMP_TEMPLATE): cv.template,
-        vol.Optional(CONF_CURRENT_HUMIDITY_TEMPLATE): cv.template,
-        vol.Optional(CONF_MIN_HUMIDITY_TEMPLATE): cv.template,
-        vol.Optional(CONF_MAX_HUMIDITY_TEMPLATE): cv.template,
-        vol.Optional(CONF_TARGET_HUMIDITY_TEMPLATE): cv.template,
-        vol.Optional(CONF_TARGET_TEMPERATURE_TEMPLATE): cv.template,
-        vol.Optional(CONF_TARGET_TEMPERATURE_HIGH_TEMPLATE): cv.template,
-        vol.Optional(CONF_TARGET_TEMPERATURE_LOW_TEMPLATE): cv.template,
-        vol.Optional(CONF_HVAC_MODE_TEMPLATE): cv.template,
-        vol.Optional(CONF_FAN_MODE_TEMPLATE): cv.template,
-        vol.Optional(CONF_PRESET_MODE_TEMPLATE): cv.template,
-        vol.Optional(CONF_SWING_MODE_TEMPLATE): cv.template,
-        vol.Optional(CONF_HVAC_ACTION_TEMPLATE): cv.template,
-        vol.Optional(CONF_SET_HUMIDITY_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(CONF_SET_TEMPERATURE_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(CONF_SET_HVAC_MODE_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(CONF_SET_FAN_MODE_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(CONF_SET_PRESET_MODE_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(CONF_SET_SWING_MODE_ACTION): cv.SCRIPT_SCHEMA,
-        vol.Optional(
-            CONF_MODE_LIST,
-            default=[
-                HVACMode.AUTO,
-                HVACMode.OFF,
-                HVACMode.COOL,
-                HVACMode.HEAT,
-                HVACMode.DRY,
-                HVACMode.FAN_ONLY,
-            ],
-        ): cv.ensure_list,
-        vol.Optional(
-            CONF_FAN_MODE_LIST,
-            default=[FAN_AUTO, FAN_LOW, FAN_MEDIUM, FAN_HIGH],
-        ): cv.ensure_list,
-        vol.Optional(
-            CONF_PRESET_MODE_LIST,
-            default=[
-                PRESET_BOOST,
-                PRESET_SLEEP,
-                PRESET_NONE,
-            ],
-        ): cv.ensure_list,
-        vol.Optional(
-            CONF_SWING_MODE_LIST, default=[STATE_ON, HVACMode.OFF]
-        ): cv.ensure_list,
-        vol.Optional(CONF_TEMP_MIN_TEMPLATE): cv.template,
-        vol.Optional(CONF_TEMP_MIN, default=DEFAULT_MIN_TEMP): vol.Coerce(float),
-        vol.Optional(CONF_TEMP_MAX_TEMPLATE): cv.template,
-        vol.Optional(CONF_TEMP_MAX, default=DEFAULT_MAX_TEMP): vol.Coerce(float),
-        vol.Optional(CONF_PRECISION): vol.In(
-            [PRECISION_TENTHS, PRECISION_HALVES, PRECISION_WHOLE]
-        ),
-        vol.Optional(CONF_TEMP_STEP, default=DEFAULT_PRECISION): vol.Coerce(float),
         vol.Optional(CONF_UNIQUE_ID): cv.string,
-        vol.Optional(CONF_MQTT_TOPIC_NAME, default="zigbee2mqtt/IR Control/set/ir_code_to_send"): cv.string,
+        vol.Optional(CONF_MQTT_TOPIC_NAME, default=DEFAULT_MQTT_TOPIC): cv.string,
     }
 )
 

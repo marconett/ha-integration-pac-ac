@@ -4,7 +4,7 @@ Probably other similar ACs too.
 
 Quick and dirty adaptation of https://github.com/Astro1247/osaka_integration.
 
-The name of the Zigbee IR device is hardcoded (grep for `IR Control` in climate.py and change it).
+IR commands are sent through MQTT in a format that Tuya IR blasters (for example Tuya ZS06) can parse.
 
 ## Setup
 
@@ -15,6 +15,8 @@ climate:
   - platform: n81_ac
     name: N81 AC
     unique_id: "n81_ac"
+    # Set your IR blasters mqtt topic
+    mqtt_topic_name: "zigbee2mqtt/IR Control/set/ir_code_to_send"
 ```
 
 ## Resources used
